@@ -1,17 +1,32 @@
 const socket = io();
 
-// DOM Elements
+// ==========================================
+// 1. REFERENCIAS AL DOM Y VARIABLES DE ESTADO
+// ==========================================
+
+// Pantallas Principales
 const loginScreen = document.getElementById('login-screen');
+const lobbyScreen = document.getElementById('lobby-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
+const victoryScreen = document.getElementById('victory-screen');
+const leaderboardDiv = document.getElementById('leaderboard');
+const spectatorControls = document.getElementById('spectator-controls');
+
+// Elementos del Login y Lobby
 const nicknameInput = document.getElementById('nickname');
 const colorInput = document.getElementById('color-picker');
 const skinSelector = document.getElementById('skin-selector');
 const customSkinInput = document.getElementById('custom-skin-input');
 const previewContainer = document.getElementById('preview-container');
 const skinPreview = document.getElementById('skin-preview');
-const myIdSpan = document.getElementById('my-id');
+const playerCountDiv = document.getElementById('player-count');
+const lobbyPlayerList = document.getElementById('lobby-player-list');
+const countdownOverlay = document.getElementById('countdown-overlay');
+const countdownNumber = document.getElementById('countdown-number');
 
-// Game Over Elements
+// Elementos de Información (HUD y Game Over)
+const myIdSpan = document.getElementById('my-id');
+const leaderboardList = document.getElementById('leaderboard-list');
 const killerName = document.getElementById('killer-name');
 const deathMessage = document.getElementById('death-message');
 const killerSkinImg = document.getElementById('killer-skin-img');
@@ -20,107 +35,94 @@ const statFinalMass = document.getElementById('stat-final-mass');
 const statRank = document.getElementById('stat-rank');
 const statFood = document.getElementById('stat-food');
 const statTime = document.getElementById('stat-time');
-
-// Botones de Navegación (Game Over)
-const playBtn = document.getElementById('play-btn');
-const goSpectateBtn = document.getElementById('go-spectate-btn');
-const goMenuBtn = document.getElementById('go-menu-btn');
-const restartBtn = document.getElementById('restart-btn');
-
-// Controles de Espectador (Barra Inferior)
-const spectatorControls = document.getElementById('spectator-controls');
-const specDetailsBtn = document.getElementById('spec-details-btn');
-const specRestartBtn = document.getElementById('spec-restart-btn');
-const specMenuBtn = document.getElementById('spec-menu-btn');
-
-const leaderboardDiv = document.getElementById('leaderboard');
-const leaderboardList = document.getElementById('leaderboard-list');
-const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
-
-
-const lobbyScreen = document.getElementById('lobby-screen');
-const playerCountDiv = document.getElementById('player-count');
-
-const lobbyPlayerList = document.getElementById('lobby-player-list');
-const countdownOverlay = document.getElementById('countdown-overlay');
-const countdownNumber = document.getElementById('countdown-number');
-
-const victoryScreen = document.getElementById('victory-screen');
 const winnerNameText = document.getElementById('winner-name');
 const finalLeaderboardList = document.getElementById('final-leaderboard-list');
 const restartCountdownSpan = document.getElementById('restart-countdown');
 
-// --- PALETA DE COLORES NEÓN ---
+// Botones
+const playBtn = document.getElementById('play-btn');
+const restartBtn = document.getElementById('restart-btn');
+const goMenuBtn = document.getElementById('go-menu-btn');
+const goSpectateBtn = document.getElementById('go-spectate-btn');
+const specDetailsBtn = document.getElementById('spec-details-btn');
+const specRestartBtn = document.getElementById('spec-restart-btn');
+const specMenuBtn = document.getElementById('spec-menu-btn');
+
+// Canvas y Contexto de Dibujo
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// Configuración de Colores Neón
 const neonColors = [
-    "#FF0055", // Neon Red/Pink
-    "#00FF55", // Neon Green
-    "#5500FF", // Neon Indigo
-    "#FFFF00", // Neon Yellow
-    "#00FFFF", // Cyan
-    "#FF00FF", // Magenta
-    "#FF5500", // Neon Orange
-    "#AA00FF", // Purple
-    "#00FF00", // Lime
-    "#0080FF"  // Azure
+    "#FF0055", "#00FF55", "#5500FF", "#FFFF00", "#00FFFF",
+    "#FF00FF", "#FF5500", "#AA00FF", "#00FF00", "#0080FF"
 ];
 
-// Función para asignar un color aleatorio al iniciar
-function setRandomNeonColor() {
-    const randomColor = neonColors[Math.floor(Math.random() * neonColors.length)];
-    colorInput.value = randomColor;
-}
+// Variables Globales del Juego (Estado Local)
+let myId = null;            // Mi ID único de socket
+let players = {};           // Datos de todos los jugadores visibles
+let food = [];              // Lista de comida
+let ejectedMass = [];       // Masa disparada
+let viruses = [];           // Lista de virus
+let mouseX = 0, mouseY = 0; // Posición del mouse
+let viewZoom = 1;           // Zoom de la cámara
 
-// Ejecutamos esto apenas carga el script
-setRandomNeonColor();
-
-// Game State
-let myId = null;
-let players = {};
-let food = [];
-let ejectedMass = [];
-let viruses = [];
-
-// Coordenadas del Mouse (Locales)
-let mouseX = 0;
-let mouseY = 0;
-
+// Estado de Skins y Espectador
 let myCustomSkinData = null;
-let viewZoom = 1;
-
-// Spectator Mode State
-let isSpectating = false;
-let spectateTargetId = null;
-
-// Skins Load
 const loadedSkins = {
     earth: new Image(), moon: new Image(), mars: new Image(), virus: new Image()
 };
+// Carga de imágenes por defecto
 loadedSkins.earth.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/The_Earth_seen_from_Apollo_17.jpg/1024px-The_Earth_seen_from_Apollo_17.jpg';
 loadedSkins.moon.src = 'https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg';
 loadedSkins.mars.src = 'https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg';
 loadedSkins.virus.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/SARS-CoV-2_without_background.png/1009px-SARS-CoV-2_without_background.png';
-const customSkinCache = {};
+const customSkinCache = {}; // Caché para no recargar skins custom ajenas
 
-// Canvas Resize
-canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+// Variables para control de lógica
+let isSpectating = false;
+let spectateTargetId = null;
+let lastLobbyNamesJSON = "";
+let inputInterval = null;
+
+// ==========================================
+// 2. CONFIGURACIÓN INICIAL Y EVENTOS DE INPUT
+// ==========================================
+
+// FUNCIÓN: Configuración de Canvas
+// Ajusta el tamaño del lienzo al tamaño de la ventana.
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+// EVENTO: Movimiento del Mouse
+// Guarda la posición X e Y del mouse para enviarla al servidor.
 canvas.addEventListener('mousemove', (e) => {
     mouseX = e.clientX;
     mouseY = e.clientY;
 });
 
-// Controls
+// EVENTO: Teclado
+// Detecta Espacio (Dividirse), W (Disparar) y ESC (Salir de espectador).
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') socket.emit('split');
     if (e.code === 'KeyW') socket.emit('eject');
-    // Atajo ESC lleva al menú si estás espectando
-    if (e.code === 'Escape' && isSpectating) {
-        goToMenu();
-    }
+    if (e.code === 'Escape' && isSpectating) goToMenu();
 });
 
-// Custom Skin Logic
+// FUNCIÓN: Color Aleatorio
+// Asigna un color neón al azar al cargar la página.
+function setRandomNeonColor() {
+    const randomColor = neonColors[Math.floor(Math.random() * neonColors.length)];
+    colorInput.value = randomColor;
+}
+setRandomNeonColor();
+
+// LÓGICA: Carga de Skin Personalizada
+// Convierte la imagen subida a Base64 y muestra previsualización.
 customSkinInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -136,23 +138,39 @@ customSkinInput.addEventListener('change', (e) => {
             myCustomSkinData = tempCanvas.toDataURL('image/jpeg', 0.8);
             skinPreview.src = myCustomSkinData;
             previewContainer.classList.remove('hidden');
-            skinSelector.value = "";
+            skinSelector.value = ""; // Reset selector normal
         }
     };
     reader.readAsDataURL(file);
 });
+
+// Resetear skin custom si elige una normal
 skinSelector.addEventListener('change', () => {
     if (skinSelector.value !== "") {
-        customSkinInput.value = ""; myCustomSkinData = null; previewContainer.classList.add('hidden');
+        customSkinInput.value = "";
+        myCustomSkinData = null;
+        previewContainer.classList.add('hidden');
     }
 });
 
-// --- SOCKET EVENTS ---
-socket.on('playerInfo', (id) => { myId = id; myIdSpan.innerText = id; });
-socket.on('serverFull', (msg) => { alert(msg); location.reload(); });
+// ==========================================
+// 3. COMUNICACIÓN CON SERVIDOR (SOCKET.IO)
+// ==========================================
 
-// Actualización de la sala de espera
-// 1. EVENTO PRIVADO: Solo se ejecuta cuando YO entro a la sala
+// EVENTO: Información Inicial
+socket.on('playerInfo', (id) => {
+    myId = id;
+    myIdSpan.innerText = id;
+});
+
+// EVENTO: Error de Conexión / Lleno
+socket.on('serverFull', (msg) => {
+    alert(msg);
+    location.reload();
+});
+
+// EVENTO: Entrar a la Sala (Privado)
+// Oculta login y muestra la sala de espera.
 socket.on('joinedLobby', () => {
     loginScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
@@ -160,75 +178,126 @@ socket.on('joinedLobby', () => {
     lobbyScreen.classList.remove('hidden');
 });
 
-// 2. EVENTO PÚBLICO: Se ejecuta para TODOS (actualiza la lista)
+// EVENTO: Actualización de Sala (Público)
+// Recibe lista de nombres y tiempo restante para actualizar la UI.
 socket.on('lobbyUpdate', (data) => {
-    // NOTA: Ya NO ocultamos/mostramos pantallas aquí. 
-    // Solo actualizamos los datos visuales.
+    // 1. Actualizar texto del reloj/estado
+    if (!data.timerActive) {
+        playerCountDiv.innerText = `${data.count} / ${data.required} para iniciar`;
+        playerCountDiv.style.color = "#4CAF50";
+        const infoText = document.querySelector('.lobby-info p');
+        if (infoText) infoText.innerText = "Esperando jugadores...";
+    } else {
+        playerCountDiv.innerText = `INICIO EN: ${data.timeLeft}s`;
+        playerCountDiv.style.color = "#FF5722";
+        const infoText = document.querySelector('.lobby-info p');
+        if (infoText) infoText.innerText = "¡La partida va a comenzar!";
+    }
 
-    // Actualizar contador
-    playerCountDiv.innerText = `${data.count} / ${data.required}`;
-
-    // Actualizar lista de nombres
-    lobbyPlayerList.innerHTML = '';
-    data.names.forEach((name, index) => {
-        const li = document.createElement('li');
-        li.innerText = `${index + 1}. ${name}`;
-        lobbyPlayerList.appendChild(li);
-    });
+    // 2. Renderizar lista de nombres (solo si cambió)
+    const currentNamesJSON = JSON.stringify(data.names);
+    if (currentNamesJSON !== lastLobbyNamesJSON) {
+        lobbyPlayerList.innerHTML = '';
+        data.names.forEach((name, index) => {
+            const li = document.createElement('li');
+            li.innerText = `${index + 1}. ${name}`;
+            lobbyPlayerList.appendChild(li);
+        });
+        lastLobbyNamesJSON = currentNamesJSON;
+    }
 });
 
-// El juego ha comenzado
+// EVENTO: Cuenta Regresiva Final
+// Muestra los números grandes (3, 2, 1) antes de jugar.
+socket.on('startCountdown', (seconds) => {
+    lobbyScreen.classList.add('hidden');
+    countdownOverlay.classList.remove('hidden');
+    let counter = seconds;
+    countdownNumber.innerText = counter;
+
+    const interval = setInterval(() => {
+        counter--;
+        if (counter > 0) {
+            countdownNumber.innerText = counter;
+        } else {
+            clearInterval(interval);
+        }
+    }, 1000);
+});
+
+// EVENTO: Inicio de Juego
+// Oculta menús y activa el envío de datos del mouse.
 socket.on('gameStarted', () => {
     lobbyScreen.classList.add('hidden');
     loginScreen.classList.add('hidden');
     countdownOverlay.classList.add('hidden');
     leaderboardDiv.classList.remove('hidden');
-
     if (!inputInterval) startInputLoop();
 });
 
+// EVENTO: Actualización de Estado (TICK)
+// Recibe posiciones de comida, virus y jugadores para dibujar.
 socket.on('stateUpdate', (data) => {
     food = data.food;
     ejectedMass = data.ejectedMass || [];
     viruses = data.viruses || [];
     updateLeaderboard(data.leaderboard);
 
+    // Si espectamos a alguien que desaparece, cambiamos al #1 del ranking
     if (isSpectating && spectateTargetId && !data.players[spectateTargetId]) {
         if (data.leaderboard && data.leaderboard.length > 0) {
             spectateTargetId = data.leaderboard[0].id;
         }
     }
 
+    // Sincronización inteligente de jugadores (Interpolación)
     const backendPlayers = data.players;
     for (const id in backendPlayers) {
         const bPlayer = backendPlayers[id];
-        if (!players[id]) { players[id] = bPlayer; }
-        else {
+        if (!players[id]) {
+            players[id] = bPlayer; // Jugador nuevo
+        } else {
+            // Actualizar datos existentes
             players[id].nickname = bPlayer.nickname;
             players[id].color = bPlayer.color;
             players[id].skin = bPlayer.skin;
             players[id].customSkin = bPlayer.customSkin;
+
+            // Mapeo de células para interpolación suave
             const currentCellsMap = {};
             players[id].cells.forEach(c => currentCellsMap[c.id] = c);
+
             players[id].cells = bPlayer.cells.map(bCell => {
                 const existingCell = currentCellsMap[bCell.id];
                 if (existingCell) {
-                    existingCell.targetX = bCell.x; existingCell.targetY = bCell.y; existingCell.targetRadius = bCell.radius;
+                    // Si existe, actualizamos su OBJETIVO (para animar hacia allí)
+                    existingCell.targetX = bCell.x;
+                    existingCell.targetY = bCell.y;
+                    existingCell.targetRadius = bCell.radius;
                     return existingCell;
                 } else {
-                    return { id: bCell.id, x: bCell.x, y: bCell.y, radius: bCell.radius, targetX: bCell.x, targetY: bCell.y, targetRadius: bCell.radius };
+                    // Si es nueva célula (división), la creamos
+                    return {
+                        id: bCell.id, x: bCell.x, y: bCell.y, radius: bCell.radius,
+                        targetX: bCell.x, targetY: bCell.y, targetRadius: bCell.radius
+                    };
                 }
             });
         }
     }
-    for (const id in players) { if (!backendPlayers[id]) delete players[id]; }
+    // Eliminar jugadores que ya no envía el servidor
+    for (const id in players) {
+        if (!backendPlayers[id]) delete players[id];
+    }
 });
 
-// --- GAME OVER HANDLER ---
+// EVENTO: Game Over (Muerte)
+// Muestra pantalla de muerte con estadísticas y opciones.
 socket.on('gameOver', (data) => {
     killerName.innerText = data.killerName;
     deathMessage.innerText = data.message;
 
+    // Mostrar skin o color del asesino
     if (data.killerCustomSkin) {
         killerSkinImg.src = data.killerCustomSkin;
         killerSkinImg.classList.remove('hidden');
@@ -243,15 +312,14 @@ socket.on('gameOver', (data) => {
         killerColorCircle.style.backgroundColor = data.killerColor;
     }
 
+    // Estadísticas
     statFinalMass.innerText = data.stats.finalMass;
     statRank.innerText = data.stats.bestRank === 999 ? "-" : "#" + data.stats.bestRank;
     statFood.innerText = data.stats.cellsEaten;
-
     const secondsAlive = Math.floor(data.stats.timeAlive / 1000);
-    const m = Math.floor(secondsAlive / 60);
-    const s = secondsAlive % 60;
-    statTime.innerText = `${m}m ${s}s`;
+    statTime.innerText = `${Math.floor(secondsAlive / 60)}m ${secondsAlive % 60}s`;
 
+    // Cambiar a modo espectador del asesino automáticamente
     spectateTargetId = data.killerId;
 
     gameOverScreen.classList.remove('hidden');
@@ -259,45 +327,29 @@ socket.on('gameOver', (data) => {
     spectatorControls.classList.add('hidden');
 });
 
-socket.on('startCountdown', (seconds) => {
-    // Ocultar lobby, mostrar cuenta regresiva
-    lobbyScreen.classList.add('hidden');
-    countdownOverlay.classList.remove('hidden');
-
-    let counter = seconds;
-    countdownNumber.innerText = counter;
-
-    const interval = setInterval(() => {
-        counter--;
-        if (counter > 0) {
-            countdownNumber.innerText = counter;
-        } else {
-            // Cuando llega a 0, limpiamos (el evento gameStarted se encargará de quitar el overlay)
-            clearInterval(interval);
-        }
-    }, 1000);
-});
-
-
+// EVENTO: Victoria de Ronda
+// Muestra la tabla final de clasificación y el ganador.
 socket.on('roundWon', (data) => {
-    // 1. Ocultar HUD del juego
     leaderboardDiv.classList.add('hidden');
-
-    // 2. Llenar datos de victoria
+    spectatorControls.classList.add('hidden');
     winnerNameText.innerText = data.winnerName;
 
-    // Llenar el Top 10 final
     finalLeaderboardList.innerHTML = '';
     data.leaderboard.forEach((player, index) => {
         const li = document.createElement('li');
-        li.innerHTML = `<span>#${index + 1} ${player.name}</span> <span>${player.score}</span>`;
+        if (player.id === myId) li.classList.add('highlight-self');
+        li.innerHTML = `
+            <span style="color: ${player.id === myId ? '#fff' : player.color}; text-shadow: 0 0 2px black;">
+                #${index + 1} ${player.name}
+            </span> 
+            <span>${player.score}</span>
+        `;
         finalLeaderboardList.appendChild(li);
     });
 
-    // 3. Mostrar pantalla
     victoryScreen.classList.remove('hidden');
 
-    // 4. Cuenta regresiva visual de 10s
+    // Cuenta regresiva para reiniciar
     let timeLeft = 10;
     restartCountdownSpan.innerText = timeLeft;
     const timer = setInterval(() => {
@@ -307,51 +359,33 @@ socket.on('roundWon', (data) => {
     }, 1000);
 });
 
+// EVENTO: Reinicio del Servidor
 socket.on('serverReset', () => {
-    // Recargar la página es la forma más limpia de resetear todo el estado local
-    // O llamar a goToMenu() y limpiar variables manualmente.
-    // Dado que pediste "volver a poner nombre", location.reload() es lo más seguro y fácil.
-    location.reload();
+    location.reload(); // Recarga la página completa
 });
 
-// --- LÓGICA DE BOTONES Y NAVEGACIÓN ---
+// ==========================================
+// 4. LÓGICA DE INTERFAZ (UI & BOTONES)
+// ==========================================
 
-playBtn.addEventListener('click', joinGame);
+// FUNCIÓN: Unirse al Juego
+// Valida el nombre y envía la señal al servidor.
+function joinGame() {
+    const name = nicknameInput.value.trim();
+    if (name.length === 0) {
+        alert("¡Debes ponerte un nombre para jugar!");
+        return;
+    }
+    const color = colorInput.value;
+    const skin = skinSelector.value;
+    // Emitir evento para iniciar
+    socket.emit('startGame', {
+        nickname: name, color: color, skin: skin, customSkin: myCustomSkinData
+    });
+}
 
-// 1. Acciones desde GAME OVER
-restartBtn.addEventListener('click', () => {
-    gameOverScreen.classList.add('hidden');
-    spectatorControls.classList.add('hidden');
-    isSpectating = false;
-    joinGame();
-});
-
-goMenuBtn.addEventListener('click', goToMenu);
-
-goSpectateBtn.addEventListener('click', () => {
-    gameOverScreen.classList.add('hidden');
-    leaderboardDiv.classList.remove('hidden');
-    spectatorControls.classList.remove('hidden');
-    isSpectating = true;
-});
-
-// 2. Acciones desde MODO ESPECTADOR
-specDetailsBtn.addEventListener('click', () => {
-    spectatorControls.classList.add('hidden');
-    leaderboardDiv.classList.add('hidden');
-    gameOverScreen.classList.remove('hidden');
-});
-
-specRestartBtn.addEventListener('click', () => {
-    spectatorControls.classList.add('hidden');
-    gameOverScreen.classList.add('hidden');
-    isSpectating = false;
-    joinGame();
-});
-
-specMenuBtn.addEventListener('click', goToMenu);
-
-// Función auxiliar para ir al menú
+// FUNCIÓN: Ir al Menú Principal
+// Resetea las pantallas visibles.
 function goToMenu() {
     gameOverScreen.classList.add('hidden');
     spectatorControls.classList.add('hidden');
@@ -361,32 +395,44 @@ function goToMenu() {
     spectateTargetId = null;
 }
 
-function joinGame() {
-    const name = nicknameInput.value.trim() || ''; // .trim() quita espacios
+// Botones de Pantalla Inicial
+playBtn.addEventListener('click', joinGame);
 
-    // REQUISITO: Nombre obligatorio
-    if (name.length === 0) {
-        alert("¡Debes ponerte un nombre para jugar!");
-        return;
-    }
+// Botones de Game Over
+restartBtn.addEventListener('click', () => {
+    gameOverScreen.classList.add('hidden');
+    spectatorControls.classList.add('hidden');
+    isSpectating = false;
+    joinGame();
+});
+goMenuBtn.addEventListener('click', goToMenu);
+goSpectateBtn.addEventListener('click', () => {
+    gameOverScreen.classList.add('hidden');
+    leaderboardDiv.classList.remove('hidden');
+    spectatorControls.classList.remove('hidden');
+    isSpectating = true;
+});
 
-    const color = colorInput.value;
-    const skin = skinSelector.value;
+// Botones de Modo Espectador
+specDetailsBtn.addEventListener('click', () => {
+    spectatorControls.classList.add('hidden');
+    leaderboardDiv.classList.add('hidden');
+    gameOverScreen.classList.remove('hidden');
+});
+specRestartBtn.addEventListener('click', () => {
+    spectatorControls.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    isSpectating = false;
+    joinGame();
+});
+specMenuBtn.addEventListener('click', goToMenu);
 
-    // Enviamos la petición, pero NO ocultamos el login todavía manualmente.
-    // Esperaremos a que el servidor nos diga que entramos a la sala.
-    socket.emit('startGame', { nickname: name, color: color, skin: skin, customSkin: myCustomSkinData });
-
-}
-
+// FUNCIÓN: Actualizar Leaderboard (HUD)
 function updateLeaderboard(topPlayers) {
     leaderboardList.innerHTML = '';
     if (!topPlayers) return;
     topPlayers.forEach((player, index) => {
         const li = document.createElement('li');
-
-        // Creamos el HTML con el estilo de color
-        // Usamos text-shadow para que se lea bien si el color es muy oscuro
         li.innerHTML = `
             <span style="color: ${player.color}; text-shadow: 0 0 2px black; font-weight: bold;">
                 #${index + 1} ${player.name}
@@ -397,22 +443,35 @@ function updateLeaderboard(topPlayers) {
     });
 }
 
-let inputInterval = null;
+// FUNCIÓN: Bucle de Input (60fps)
+// Envía constantemente la posición del mouse si estamos jugando.
 function startInputLoop() {
     if (inputInterval) clearInterval(inputInterval);
     inputInterval = setInterval(() => {
         if (!isSpectating && myId && players[myId] && players[myId].cells.length > 0) {
+            // Calcular centro del jugador
             let centerX = 0, centerY = 0;
             players[myId].cells.forEach(c => { centerX += c.x; centerY += c.y; });
-            centerX /= players[myId].cells.length; centerY /= players[myId].cells.length;
-            const vectorX = mouseX - canvas.width / 2; const vectorY = mouseY - canvas.height / 2;
+            centerX /= players[myId].cells.length;
+            centerY /= players[myId].cells.length;
+
+            // Vector relativo al centro de la pantalla
+            const vectorX = mouseX - canvas.width / 2;
+            const vectorY = mouseY - canvas.height / 2;
             socket.emit('input', { x: centerX + vectorX, y: centerY + vectorY });
         }
     }, 1000 / 60);
 }
 
+// ==========================================
+// 5. MOTOR GRÁFICO (CANVAS RENDER)
+// ==========================================
+
+// Función auxiliar de Interpolación Lineal (Suavizado)
 function lerp(start, end, t) { return start + (end - start) * t; }
 
+// FUNCIÓN: Dibujar Virus
+// Dibuja el círculo verde con picos.
 function drawVirus(ctx, x, y, radius) {
     ctx.fillStyle = '#33FF33'; ctx.strokeStyle = '#22AA22'; ctx.lineWidth = 5;
     const numSpikes = 20; const spikeHeight = 5;
@@ -420,12 +479,15 @@ function drawVirus(ctx, x, y, radius) {
     for (let i = 0; i < numSpikes * 2; i++) {
         const angle = (Math.PI * 2 * i) / (numSpikes * 2);
         const r = (i % 2 === 0) ? radius + spikeHeight : radius - spikeHeight;
-        const vx = x + Math.cos(angle) * r; const vy = y + Math.sin(angle) * r;
+        const vx = x + Math.cos(angle) * r;
+        const vy = y + Math.sin(angle) * r;
         if (i === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
     }
     ctx.closePath(); ctx.fill(); ctx.stroke();
 }
 
+// FUNCIÓN: Efecto Gelatina
+// Calcula el borde oscilante de las células.
 function traceJellyPath(ctx, radius) {
     const resolution = Math.max(20, Math.min(120, Math.floor(radius * 1.5)));
     const time = Date.now() / 200;
@@ -433,14 +495,16 @@ function traceJellyPath(ctx, radius) {
     for (let i = 0; i <= resolution; i++) {
         const angle = (Math.PI * 2 * i) / resolution;
         const offset = Math.sin(angle * 5 + time) * Math.cos(angle * 3 - time);
-        const wobbleAmount = radius * 0.03;
+        const wobbleAmount = radius * 0.03; // Intensidad del temblor
         const r = radius + (offset * wobbleAmount);
-        const x = Math.cos(angle) * r; const y = Math.sin(angle) * r;
+        const x = Math.cos(angle) * r;
+        const y = Math.sin(angle) * r;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
 }
 
+// FUNCIÓN: Dibujar Cuadrícula de Fondo
 function drawGrid() {
     ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.lineWidth = 1;
     for (let x = 0; x <= 3000; x += 50) { ctx.moveTo(x, 0); ctx.lineTo(x, 3000); }
@@ -448,14 +512,21 @@ function drawGrid() {
     ctx.stroke(); ctx.closePath();
 }
 
+// FUNCIÓN PRINCIPAL: Draw (Render Loop)
+// Se ejecuta frame a frame para dibujar todo el juego.
 function draw() {
     requestAnimationFrame(draw);
-    ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // 1. Limpiar pantalla
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Calcular Cámara (Posición y Zoom)
     let camX = 0, camY = 0;
     let totalMassForZoom = 0;
     let targetFound = false;
 
+    // Decidir a quién sigue la cámara (A mí o al objetivo espectado)
     if (!isSpectating && myId && players[myId] && players[myId].cells.length > 0) {
         const p = players[myId];
         p.cells.forEach(c => { camX += c.x; camY += c.y; totalMassForZoom += c.mass; });
@@ -471,22 +542,17 @@ function draw() {
         }
     }
 
-    if (!targetFound) {
-        camX = 1500; camY = 1500; totalMassForZoom = 100;
-    }
+    if (!targetFound) { camX = 1500; camY = 1500; totalMassForZoom = 100; }
 
-    // --- MEJORA DE CÁMARA ---
+    // Calcular zoom dinámico basado en la masa
     let massZoom = 50 / (Math.sqrt(totalMassForZoom) + 40);
-    const baseWidth = 1920;
-    const baseHeight = 1080;
+    const baseWidth = 1920; const baseHeight = 1080;
     let screenFactor = Math.max(canvas.width / baseWidth, canvas.height / baseHeight);
     let targetZoom = massZoom * screenFactor;
-    const minZoom = 0.1 * screenFactor;
-    const maxZoom = 1.5 * screenFactor;
-    targetZoom = Math.max(minZoom, Math.min(maxZoom, targetZoom));
+    targetZoom = Math.max(0.1 * screenFactor, Math.min(1.5 * screenFactor, targetZoom));
+    viewZoom = lerp(viewZoom, targetZoom, 0.05); // Suavizar cambio de zoom
 
-    viewZoom = lerp(viewZoom, targetZoom, 0.05);
-
+    // 3. Interpolar posiciones de TODOS los jugadores (Suavizar movimiento)
     for (const id in players) {
         const p = players[id];
         p.cells.forEach(cell => {
@@ -498,58 +564,89 @@ function draw() {
         });
     }
 
+    // 4. Aplicar transformaciones de cámara
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(viewZoom, viewZoom);
     ctx.translate(-camX, -camY);
 
+    // 5. Dibujar Fondo y Bordes
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 3000, 3000); ctx.clip();
     drawGrid();
     ctx.strokeStyle = '#333'; ctx.lineWidth = 5; ctx.strokeRect(0, 0, 3000, 3000);
 
-    food.forEach(f => { ctx.beginPath(); ctx.arc(f.x, f.y, 5, 0, Math.PI * 2); ctx.fillStyle = f.color; ctx.fill(); });
-    ejectedMass.forEach(em => { ctx.beginPath(); ctx.arc(em.x, em.y, em.radius, 0, Math.PI * 2); ctx.fillStyle = em.color; ctx.fill(); ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke(); });
+    // 6. Dibujar Comida
+    food.forEach(f => {
+        ctx.beginPath(); ctx.arc(f.x, f.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = f.color; ctx.fill();
+    });
 
+    // 7. Dibujar Masa Eyectada
+    ejectedMass.forEach(em => {
+        ctx.beginPath(); ctx.arc(em.x, em.y, em.radius, 0, Math.PI * 2);
+        ctx.fillStyle = em.color; ctx.fill();
+        ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
+    });
+
+    // 8. Dibujar Células de Jugadores
     let allCellsToDraw = [];
     for (const id in players) {
         const p = players[id];
-        p.cells.forEach(c => { allCellsToDraw.push({ ...c, nickname: p.nickname, color: p.color, skin: p.skin, customSkin: p.customSkin, parentId: p.id }); });
+        p.cells.forEach(c => {
+            allCellsToDraw.push({ ...c, nickname: p.nickname, color: p.color, skin: p.skin, customSkin: p.customSkin, parentId: p.id });
+        });
     }
+    // Ordenar por tamaño para que las grandes no tapen a las pequeñas
     allCellsToDraw.sort((a, b) => a.radius - b.radius);
 
     allCellsToDraw.forEach(cell => {
         ctx.save(); ctx.translate(cell.x, cell.y);
-        traceJellyPath(ctx, cell.radius);
+        traceJellyPath(ctx, cell.radius); // Efecto visual
+
+        // Decidir si dibujar Skin o Color
         let imageToDraw = null;
         if (cell.customSkin) {
-            if (!customSkinCache[cell.parentId]) { const img = new Image(); img.src = cell.customSkin; customSkinCache[cell.parentId] = img; }
+            if (!customSkinCache[cell.parentId]) {
+                const img = new Image(); img.src = cell.customSkin;
+                customSkinCache[cell.parentId] = img;
+            }
             if (customSkinCache[cell.parentId].complete) imageToDraw = customSkinCache[cell.parentId];
-        } else if (cell.skin && loadedSkins[cell.skin] && loadedSkins[cell.skin].complete) { imageToDraw = loadedSkins[cell.skin]; }
+        } else if (cell.skin && loadedSkins[cell.skin] && loadedSkins[cell.skin].complete) {
+            imageToDraw = loadedSkins[cell.skin];
+        }
 
-        if (imageToDraw) { ctx.save(); ctx.clip(); ctx.drawImage(imageToDraw, -cell.radius, -cell.radius, cell.radius * 2, cell.radius * 2); ctx.restore(); }
-        else { ctx.fillStyle = cell.color; ctx.fill(); }
+        if (imageToDraw) {
+            ctx.save(); ctx.clip();
+            ctx.drawImage(imageToDraw, -cell.radius, -cell.radius, cell.radius * 2, cell.radius * 2);
+            ctx.restore();
+        } else {
+            ctx.fillStyle = cell.color; ctx.fill();
+        }
 
+        // Borde blanco
         const borderWidth = Math.max(2, cell.radius * 0.05);
         ctx.strokeStyle = '#fff'; ctx.lineWidth = borderWidth; ctx.stroke();
 
-        ctx.lineWidth = borderWidth * 2;
-        if (cell.x < cell.radius) { const h = Math.sqrt(Math.abs(cell.radius ** 2 - cell.x ** 2)); ctx.beginPath(); ctx.moveTo(-cell.x, -h); ctx.lineTo(-cell.x, h); ctx.stroke(); }
-        if (cell.x > 3000 - cell.radius) { const d = 3000 - cell.x; const h = Math.sqrt(Math.abs(cell.radius ** 2 - d ** 2)); ctx.beginPath(); ctx.moveTo(d, -h); ctx.lineTo(d, h); ctx.stroke(); }
-        if (cell.y < cell.radius) { const w = Math.sqrt(Math.abs(cell.radius ** 2 - cell.y ** 2)); ctx.beginPath(); ctx.moveTo(-w, -cell.y); ctx.lineTo(w, -cell.y); ctx.stroke(); }
-        if (cell.y > 3000 - cell.radius) { const d = 3000 - cell.y; const w = Math.sqrt(Math.abs(cell.radius ** 2 - d ** 2)); ctx.beginPath(); ctx.moveTo(-w, d); ctx.lineTo(w, d); ctx.stroke(); }
-
-        // --- CAMBIO AQUÍ: NOMBRE MÁS GRANDE ---
+        // 9. Dibujar Nombres
         if (cell.radius > 5) {
-            // Aumenté el tamaño base de 10 a 16 y el multiplicador de 0.3 a 0.5
-            ctx.fillStyle = 'white'; ctx.font = `bold ${Math.max(16, cell.radius * 0.5)}px Arial`;
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-            ctx.strokeText(cell.nickname, 0, 0); ctx.fillText(cell.nickname, 0, 0);
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${Math.max(16, cell.radius * 0.5)}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
+            ctx.strokeText(cell.nickname, 0, 0);
+            ctx.fillText(cell.nickname, 0, 0);
         }
         ctx.restore();
     });
+    ctx.restore(); // Restaurar clip del mapa
+
+    // 10. Dibujar Virus (encima de todo)
+    ctx.save();
+    viruses.forEach(v => drawVirus(ctx, v.x, v.y, v.radius));
     ctx.restore();
 
-    ctx.save(); viruses.forEach(v => drawVirus(ctx, v.x, v.y, v.radius)); ctx.restore();
-    ctx.restore();
+    ctx.restore(); // Finalizar frame
 }
+
+// Iniciar renderizado
 draw();

@@ -678,16 +678,44 @@ button:active {
     list-style: none;
     padding: 0;
     max-height: 200px;
+
     overflow-y: auto;
+    /* Scroll vertical permitido */
+    overflow-x: hidden;
+    /* Scroll horizontal PROHIBIDO */
+
+    scrollbar-width: thin;
+    scrollbar-color: #4CAF50 #222;
 }
 
+/* Estilos para la barra de desplazamiento */
+#final-leaderboard-list::-webkit-scrollbar {
+    width: 6px;
+    /* Ancho para vertical */
+    height: 0px;
+    /* IMPORTANTE: Altura 0 para horizontal (la hace invisible) */
+}
+
+#final-leaderboard-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+}
+
+#final-leaderboard-list::-webkit-scrollbar-thumb {
+    background-color: #4CAF50;
+    border-radius: 3px;
+}
+
+/* Ajuste de los elementos de la lista */
 #final-leaderboard-list li {
     display: flex;
     justify-content: space-between;
-    padding: 5px 10px;
+    padding: 8px 10px;
     font-size: 14px;
     color: #ddd;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    /* ELIMINAMOS width: 100% para evitar problemas de cálculo de caja */
+    box-sizing: border-box;
 }
 
 .restart-timer {
@@ -718,4 +746,17 @@ button:active {
         opacity: 1;
         transform: scale(1);
     }
+}
+
+/* --- RESALTAR MI NOMBRE EN LAS LISTAS --- */
+.highlight-self {
+    background: rgba(76, 175, 80, 0.3) !important;
+    border: 2px solid #4CAF50 !important;
+    /* Borde un poco más grueso */
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    /* Más brillo */
+    font-weight: 900 !important;
+    color: #fff !important;
+    z-index: 10;
+    /* ELIMINAMOS transform: scale(1.02) PARA EVITAR SCROLLBAR */
 }
